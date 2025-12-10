@@ -7,20 +7,29 @@
   <style>
     body{font-family:Inter,system-ui,Arial;background:#020214;color:#e8f4ff;padding:24px}
     .card{max-width:820px;margin:36px auto;padding:20px;border-radius:12px;background:linear-gradient(180deg,#071129,#081026);box-shadow:0 12px 40px rgba(0,0,0,0.6)}
-    textarea{width:100%;min-height:160px;font-family:monospace;padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:#020214;color:#e8f4ff}
+    textarea{width:100%;min-height:160px;font-family:monospace;padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.05);background:#020214;color:#e8f4ff}
     button{padding:10px 14px;border-radius:8px;border:0;background:#7c3aed;color:white;cursor:pointer}
     pre{background:#050519;padding:12px;border-radius:8px;overflow:auto}
-    .ok{color:#7ef0a4}
-    .bad{color:#ff8b9a}
+    .ok{color:#7ef0a4;font-weight:600}
+    .bad{color:#ff8b9a;font-weight:600}
     .hint{color:rgba(232,244,255,0.6);font-size:13px}
+    .fileBox{padding:12px;border:1px dashed rgba(255,255,255,0.25);border-radius:8px;margin-bottom:12px;text-align:center;cursor:pointer}
   </style>
 </head>
 <body>
   <div class="card">
     <h2>ZELA Prize Verify</h2>
-    <p class="hint">Paste the token (contents of the .zela file) below and click <strong>Verify</strong>.</p>
 
-    <textarea id="tokenInput" placeholder="Paste the token (JWT) here"></textarea>
+    <p class="hint">Upload your <strong>.zela</strong> file or paste the token.</p>
+
+    <!-- UPLOAD BOX -->
+    <div class="fileBox" onclick="document.getElementById('fileInput').click()">
+      📁 Click to upload code file (.zela)
+    </div>
+    <input type="file" id="fileInput" style="display:none" accept=".txt,.zela">
+
+    <textarea id="tokenInput" placeholder="Or paste the token here"></textarea>
+
     <div style="margin-top:10px">
       <button id="verifyBtn">Verify</button>
       <button id="clearBtn" style="margin-left:12px;background:#4b5563">Clear</button>
@@ -28,39 +37,70 @@
 
     <div id="result" style="margin-top:16px"></div>
 
-    <hr style="margin:18px 0;border:none;border-top:1px solid rgba(255,255,255,0.04)" />
-    <h4>Public key used for verification</h4>
-    <pre id="pubKey" style="white-space:pre-wrap"></pre>
+    <hr style="margin:18px 0;border:none;border-top:1px solid rgba(255,255,255,0.04)">
+    <h4>Verification Rules</h4>
+
+    <pre>
+✔ Must be at least 32 characters  
+✔ Must contain the tag: ZELA-PRIZE  
+✔ Must include 1 uppercase letter  
+✔ Must include 1 number  
+✔ Must include 1 special character (!@#$% etc)
+    </pre>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/jsrsasign@10.5.23/lib/jsrsasign-all-min.js"></script>
   <script>
-    // Replace PUBLIC_KEY_PEM with your public.pem contents
-    const PUBLIC_KEY_PEM = `-----BEGIN PUBLIC KEY-----
-REPLACE_WITH_YOUR_PUBLIC_PEM_CONTENT
------END PUBLIC KEY-----`;
+    const rules = {
+      minLength: 32,
+      tag: "ZELA-PRIZE",
+      uppercase: /[A-Z]/,
+      number: /[0-9]/,
+      special: /[!@#$%^&*_\-?]/
+    };
 
-    document.getElementById('pubKey').textContent = PUBLIC_KEY_PEM;
+    function showResult(html){
+      document.getElementById('result').innerHTML = html;
+    }
 
-    function showResult(html){ document.getElementById('result').innerHTML = html; }
+    // Handle file upload
+    document.getElementById('fileInput').addEventListener('change', async (e)=>{
+      const file = e.target.files[0];
+      if(!file) return;
 
+      const text = await file.text();
+      document.getElementById('tokenInput').value = text.trim();
+    });
+
+    // Verification logic (no real crypto like you requested)
     document.getElementById('verifyBtn').addEventListener('click', ()=>{
       const token = document.getElementById('tokenInput').value.trim();
-      if(!token){ showResult('<div class="bad">Please paste the token.</div>'); return; }
-      try {
-        const ok = KJUR.jws.JWS.verify(token, PUBLIC_KEY_PEM, ['RS256']);
-        if(!ok){ showResult('<div class="bad">Signature invalid — token forged or corrupted.</div>'); return; }
-        const payloadObj = JSON.parse(b64utoutf8(token.split('.')[1]));
-        const now = Math.floor(Date.now()/1000);
-        if(payloadObj.exp && now > payloadObj.exp){
-          showResult(`<div class="bad">Token expired on ${new Date(payloadObj.exp*1000).toLocaleString()}</div><pre>${JSON.stringify(payloadObj,null,2)}</pre>`);
-          return;
-        }
-        showResult(`<div class="ok">Token is valid ✔</div><pre>${JSON.stringify(payloadObj,null,2)}</pre>`);
-      } catch(e){ console.error(e); showResult('<div class="bad">Verification error: ' + (e.message||e) + '</div>'); }
+      if(!token){
+        showResult('<div class="bad">No token provided.</div>');
+        return;
+      }
+
+      const errors = [];
+
+      if(token.length < rules.minLength) errors.push("❌ Too short (must be 32+ characters)");
+      if(!token.includes(rules.tag)) errors.push("❌ Missing required tag: ZELA-PRIZE");
+      if(!rules.uppercase.test(token)) errors.push("❌ Must contain at least one uppercase letter");
+      if(!rules.number.test(token)) errors.push("❌ Must contain a number");
+      if(!rules.special.test(token)) errors.push("❌ Must contain at least one special character");
+
+      if(errors.length){
+        showResult(
+          `<div class="bad">Token Failed ❌</div><pre>${errors.join("\n")}</pre>`
+        );
+      } else {
+        showResult(`<div class="ok">Token Valid ✔</div><pre>${token}</pre>`);
+      }
     });
-    document.getElementById('clearBtn').addEventListener('click', ()=>{ document.getElementById('tokenInput').value=''; document.getElementById('result').innerHTML=''; });
-    function b64utoutf8(b64u){ try{ return decodeURIComponent(escape(window.atob(b64u.replace(/-/g,'+').replace(/_/g,'/')))); }catch(e){ return window.atob(b64u.replace(/-/g,'+').replace(/_/g,'/')); } }
+
+    // Clear button
+    document.getElementById('clearBtn').addEventListener('click', ()=>{
+      document.getElementById('tokenInput').value = "";
+      document.getElementById('result').innerHTML = "";
+    });
   </script>
 </body>
 </html>
