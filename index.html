@@ -37,19 +37,10 @@
 
     <div id="result" style="margin-top:16px"></div>
 
-    <hr style="margin:18px 0;border:none;border-top:1px solid rgba(255,255,255,0.04)">
-    <h4>Verification Rules</h4>
-
-    <pre>
-✔ Must be at least 32 characters  
-✔ Must contain the tag: ZELA-PRIZE  
-✔ Must include 1 uppercase letter  
-✔ Must include 1 number  
-✔ Must include 1 special character (!@#$% etc)
-    </pre>
   </div>
 
   <script>
+    // Hidden verification rules
     const rules = {
       minLength: 32,
       tag: "ZELA-PRIZE",
@@ -71,28 +62,26 @@
       document.getElementById('tokenInput').value = text.trim();
     });
 
-    // Verification logic (no real crypto like you requested)
+    // Verification logic (hidden errors)
     document.getElementById('verifyBtn').addEventListener('click', ()=>{
       const token = document.getElementById('tokenInput').value.trim();
       if(!token){
-        showResult('<div class="bad">No token provided.</div>');
+        showResult('<div class="bad">This code is probably forged or fake — unsuccessful verification.</div>');
         return;
       }
 
-      const errors = [];
+      let valid = true;
 
-      if(token.length < rules.minLength) errors.push("❌ Too short (must be 32+ characters)");
-      if(!token.includes(rules.tag)) errors.push("❌ Missing required tag: ZELA-PRIZE");
-      if(!rules.uppercase.test(token)) errors.push("❌ Must contain at least one uppercase letter");
-      if(!rules.number.test(token)) errors.push("❌ Must contain a number");
-      if(!rules.special.test(token)) errors.push("❌ Must contain at least one special character");
+      if(token.length < rules.minLength) valid = false;
+      if(!token.includes(rules.tag)) valid = false;
+      if(!rules.uppercase.test(token)) valid = false;
+      if(!rules.number.test(token)) valid = false;
+      if(!rules.special.test(token)) valid = false;
 
-      if(errors.length){
-        showResult(
-          `<div class="bad">Token Failed ❌</div><pre>${errors.join("\n")}</pre>`
-        );
+      if(valid){
+        showResult(`<div class="ok">Verification successful ✔</div>`);
       } else {
-        showResult(`<div class="ok">Token Valid ✔</div><pre>${token}</pre>`);
+        showResult(`<div class="bad">This code is probably forged or fake — unsuccessful verification.</div>`);
       }
     });
 
